@@ -1037,6 +1037,20 @@ void Motherboard::setExtra(bool on) {
 	  (int)(0.5 +  ((uint16_t)(1 << FAN_PWM_BITS) * fan_pwm) / 100.0);
 }
 
+void Motherboard::setExtra(uint8_t fan_pwm) {
+
+    fan_pwm_enable = false;
+
+    if (fan_pwm == 0) {
+	  EXTRA_FET.setValue(false);
+	  return;
+    }
+
+    fan_pwm_bottom_count = ((fan_pwm + 1u) >> (8 - FAN_PWM_BITS))
+                           + (255 - (1 << FAN_PWM_BITS));
+    fan_pwm_enable = true;
+}
+
 #else
 
 void Motherboard::setExtra(bool on) {

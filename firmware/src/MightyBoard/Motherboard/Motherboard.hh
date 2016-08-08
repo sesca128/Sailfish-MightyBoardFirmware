@@ -210,6 +210,7 @@ public:
 	bool isUsingPlatform() { return using_platform; }
 	void setUsingPlatform(bool is_using);
 	static void setExtra(bool on);
+	static void setExtra(uint8_t fan_pwm);
 	Heater& getPlatformHeater() { return platform_heater; }
 
 	InterfaceBoard& getInterfaceBoard() { return interfaceBoard; }	
