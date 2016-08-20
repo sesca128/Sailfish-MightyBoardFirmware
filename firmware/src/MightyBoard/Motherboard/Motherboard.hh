@@ -209,8 +209,13 @@ public:
 
 	bool isUsingPlatform() { return using_platform; }
 	void setUsingPlatform(bool is_using);
+
 	static void setExtra(bool on);
+#ifdef COOLING_FAN_PWM
 	static void setExtra(uint8_t fan_pwm);
+#endif
+	static bool pauseExtra(void);
+	static void unpauseExtra(bool state);
 	Heater& getPlatformHeater() { return platform_heater; }
 
 	InterfaceBoard& getInterfaceBoard() { return interfaceBoard; }	

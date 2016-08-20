@@ -935,10 +935,14 @@ bool processExtruderCommandPacket(int8_t overrideToolIndex) {
 			board.getExtruderBoard(toolIndex).setFan((command_buffer[4] & 0x01) != 0);
 			return true;
 		case SLAVE_CMD_TOGGLE_VALVE:
+#ifdef COOLING_FAN_PWM
 				if (command_buffer[4] == 0x01)
 					board.setExtra(true);
 				else
 					board.setExtra(command_buffer[4]);
+#else
+				board.setExtra((command_buffer[4] & 0x01) != 0);
+#endif
 			return true;
 		case SLAVE_CMD_SET_PLATFORM_TEMP:
 			if ( !eeprom::hasHBP() ) return true;
@@ -1033,15 +1037,7 @@ void handlePauseState(void) {
 		    Motherboard& board = Motherboard::getBoard();
 
 		    // Turn the fan off
-#if defined(COOLING_FAN_PWM)
-		    pausedFanState = fan_pwm_enable;
-#else
-		    // When PWM mode is in used, the fan pin goes on
-		    // and off at high frequency.  Cannot use the pin's
-		    // state to ascertain if the fan is logically on.
-		    pausedFanState = EX_FAN.getValue();
-#endif
-		    board.setExtra(false);
+		    pausedFanState = board.pauseExtra();
 
 		    //Store the current heater temperatures for restoring later
 		    pausedExtruderTemp[0] = (int16_t)board.getExtruderBoard(0).getExtruderHeater().get_set_temperature();
@@ -1169,7 +1165,7 @@ void handlePauseState(void) {
 		//Wait for the filament unretraction to finish
 		//then resume processing commands
 		if (movesplanned() == 0) {
-		        Motherboard::getBoard().setExtra(pausedFanState);
+		        Motherboard::getBoard().unpauseExtra(pausedFanState);
 			restoreDigiPots();
 			removeStatusMessage();
 			paused = PAUSE_STATE_NONE;

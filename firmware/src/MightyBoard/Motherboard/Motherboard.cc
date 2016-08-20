@@ -1007,34 +1007,20 @@ void Motherboard::setUsingPlatform(bool is_using) {
 #if defined(COOLING_FAN_PWM)
 
 void Motherboard::setExtra(bool on) {
-     uint16_t fan_pwm; // Will be multiplying 8 bits by 100(decimal)
+     uint8_t fan_pwm = 0;
 
-     // Disable any fan PWM handling in Timer 5
-     fan_pwm_enable = false;
-
-     if ( !on ) {
-	  EXTRA_FET.setValue(false);
-	  return;
+     // Get the value from the EEPROM when the fan is boolean on
+     if ( on ) {
+         // See what the PWM setting is -- may have been changed
+         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+             fan_pwm = (uint16_t)eeprom::getEeprom8(eeprom_offsets::COOLING_FAN_DUTY_CYCLE,
+             COOLING_FAN_DUTY_CYCLE_DEFAULT);
+         }
+         // Convert to 0-255 scale
+         fan_pwm = ((uint16_t)fan_pwm * 255u)/100u;
      }
 
-     // See what the PWM setting is -- may have been changed
-     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-	  fan_pwm = (uint16_t)eeprom::getEeprom8(eeprom_offsets::COOLING_FAN_DUTY_CYCLE,
-						 COOLING_FAN_DUTY_CYCLE_DEFAULT);
-     }
-
-     // Don't bother with PWM handling if the PWM is >= 100
-     // Just turn the fan on full tilt
-     if ( fan_pwm >= 100 ) {
-	  EXTRA_FET.setValue(true);
-	  return;
-     }
-
-     // Fan is to be turned on AND we are doing PWM
-     // We start the bottom count at 255 - 64 and then wrap
-     fan_pwm_enable = true;
-     fan_pwm_bottom_count = (255 - (1 << FAN_PWM_BITS)) +
-	  (int)(0.5 +  ((uint16_t)(1 << FAN_PWM_BITS) * fan_pwm) / 100.0);
+     Motherboard::setExtra(fan_pwm);
 }
 
 void Motherboard::setExtra(uint8_t fan_pwm) {
@@ -1042,13 +1028,27 @@ void Motherboard::setExtra(uint8_t fan_pwm) {
     fan_pwm_enable = false;
 
     if (fan_pwm == 0) {
-	  EXTRA_FET.setValue(false);
-	  return;
+        EXTRA_FET.setValue(false);
+        return;
     }
 
+    // fan_pwm ranges from 0 to 255 where 255 is 100%
+    // The fan PWM counter runs from (256-64) up to 255 and wraps.
+    // Scale/offset appropriately: 191 - Full off => 255 - Full on
     fan_pwm_bottom_count = ((fan_pwm + 1u) >> (8 - FAN_PWM_BITS))
                            + (255 - (1 << FAN_PWM_BITS));
     fan_pwm_enable = true;
+}
+
+void Motherboard::unpauseExtra(bool state) {
+    fan_pwm_enable = state;
+}
+
+bool Motherboard::pauseExtra(){
+    bool state = fan_pwm_enable;
+    fan_pwm_enable = false;
+    EXTRA_FET.setValue(false);
+    return state;
 }
 
 #else
@@ -1056,6 +1056,17 @@ void Motherboard::setExtra(uint8_t fan_pwm) {
 void Motherboard::setExtra(bool on) {
      EXTRA_FET.setValue(on);
 }
+
+bool Motherboard::pauseExtra(){
+    bool state = EX_FAN.getValue();
+    EXTRA_FET.setValue(false);
+    return state;
+}
+
+void Motherboard::unpauseExtra(bool state){
+    EXTRA_FET.setValue(state);
+}
+
 
 #endif
 
